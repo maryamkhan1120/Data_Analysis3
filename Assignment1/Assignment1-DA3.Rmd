@@ -1,0 +1,27 @@
+---
+title: "Untitled"
+author: "Maryam Khan"
+date: "1/23/2022"
+output: html_document
+---
+```{r}
+# Loading Libraries
+
+library(data.table)
+library(tidyverse)
+library(modelsummary)
+library(fixest)
+library(caret)
+library(skimr)
+library(grid)
+library(glmnet)
+library(cowplot)
+
+#Loading the data
+df <- fread("https://osf.io/4ay9x/download")
+```
+```{r}
+## 4720 - Cashiers 
+occ <- df[, .(count = .N), by=  occ2012]
+```
+
