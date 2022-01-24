@@ -16,12 +16,29 @@ library(skimr)
 library(grid)
 library(glmnet)
 library(cowplot)
+library(ggplot2)
 
 #Loading the data
 df <- fread("https://osf.io/4ay9x/download")
 ```
 ```{r}
-## 4720 - Cashiers 
+## 0800 - Accountants and auditors
 occ <- df[, .(count = .N), by=  occ2012]
+
+## Choosing occupation
+df1 <- df[occ2012 == 0800]
+
+str(df1)
+
+library(ggplot2)
+
+ggplot(df1) +
+ aes(x = w) +
+ geom_density(adjust = 1L, fill = "#112446") +
+ theme_minimal()
+
+## Making a new variable for wage/hour
+
+df1 <- df1[, w := earnwke/uhours]
 ```
 
