@@ -145,11 +145,11 @@ datasummary( w*education ~ N + SD + Percent() + Mean, data = df1 )
 ## RACE ##
 datasummary( w*factor(race) ~ N + SD +Percent() + Mean, data = df1 )
   # creating binary for white as majority observations are white
-df1[race == 1, white := 1]
-df1[race >= 2, white := 0]
-df1$white <- factor(df1$white)
+df1 <- df1[race == 1, race1 := "white"][race >= 2, race1 := "other"]
+
+df1$race1 <- factor(df1$race1)
 df1 <- df1[, race := NULL]
-  datasummary( w*factor(white) ~ N + SD + Percent() + Mean, data = df1 )
+  datasummary( w*factor(race1) ~ N + SD + Percent() + Mean, data = df1 )
 # Dropping white as there is not a significant difference in wage
 #df1 <- df1[, white := NULL] 
 
@@ -172,14 +172,14 @@ datasummary( w*factor(age) ~ N + Percent() + Mean, data = df1 )
 ## SEX ## 
   # binary variable
 datasummary( w*factor(sex) ~ N + Percent() + Mean, data = df1 )
-df1[sex == 2, female := 1]
-df1[sex == 1, female := 0]
-df1$female <- factor(df1$female)
+
+df1 <- df1[sex == 1, gender := "Male"][sex == 2, gender := "Female"]
+df1$gender <- factor(df1$gender)
 df1 <- df1[,sex := NULL]
 
 
 ## MARITAL ##
-datasummary( w*factor(marital_status) ~ N +SD + Percent() + Mean, data = df1 )
+datasummary( w*factor(marital) ~ N +SD + Percent() + Mean, data = df1 )
 
 
 df1[marital <= 3, marital_status := "married"] 
@@ -205,8 +205,8 @@ df1 <- df1[,chldpres := NULL]
 ## PRCITSHP ##
 datasummary( w*factor(prcitshp) ~ N + Percent() + Mean, data = df1 ) 
 df1[prcitshp == "Native, Born In US" | prcitshp == "Native, Born in PR or US Outlying Area" 
-    | prcitshp == "Native, Born Abroad Of US Parent(s)" , native := 1] 
-df1[prcitshp == "Foreign Born, US Cit By Naturalization" | prcitshp == "Foreign Born, Not a US Citizen" , native := 0]
+    | prcitshp == "Native, Born Abroad Of US Parent(s)" , citizen := "native"] 
+df1[prcitshp == "Foreign Born, US Cit By Naturalization" | prcitshp == "Foreign Born, Not a US Citizen" , citizen := "foriegn"]
 
 df1 <- df1[,prcitshp := NULL]
 
@@ -217,9 +217,9 @@ df1 <- df1[,ind02 := NULL]
 
 ## CLASS ##
 # Not including in the model as there is no significant difference in wage
-  datasummary( w*factor(private) ~ N + Percent() + Mean, data = df1 ) 
- df1[class == "Government - Federal" | class == "Government - Local" | class == "Government - State", private := 0] 
-df1[class == "Private, For Profit" | class == "Private, Nonprofit" , private := 1]
+  datasummary( w*factor(class) ~ N + Percent() + Mean, data = df1 ) 
+ df1[class == "Government - Federal" | class == "Government - Local" | class == "Government - State", company := "government"] 
+df1[class == "Private, For Profit" | class == "Private, Nonprofit" , company := "private"]
 df1 <- df1[,class := NULL]
 
 ## UNIONMME ##
@@ -237,5 +237,12 @@ df1 <- df1[,unioncov := NULL]
 # Not including as most of the observations are for employed at work
 df1 <- df1[,lfsr94 := NULL]
   
+```
+
+
+```{r}
+#######################
+## Interaction terms ##
+######################
 ```
 
