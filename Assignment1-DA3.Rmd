@@ -1,0 +1,441 @@
+---
+title: "Untitled"
+author: "Maryam Khan"
+date: "1/23/2022"
+output: html_document
+---
+```{r}
+# Loading Libraries
+rm(list = ls())
+ 
+library(tidyverse) 
+library(modelsummary)
+library(fixest)
+library(kableExtra)
+library(data.table)
+library(ggplot2)
+library(GGally)
+library(viridis)
+library(caret)
+library(grid)
+library(dplyr)
+library(gridExtra)
+library(grid)
+library(viridis)
+
+#install.packages("glmnet")
+```
+
+```{r}
+#Loading the data
+df <- fread("https://osf.io/4ay9x/download")
+
+## 0800 - Accountants and auditors
+occ <- df[, .(count = .N), by=  occ2012]
+
+## Choosing occupation
+df1 <- df[occ2012 == 0800]
+#rm(df)
+
+str(df1)
+
+
+
+datasummary_skim(df1)
+  
+
+
+```
+
+
+```{r}
+###################
+## Data Cleaning ##
+###################
+
+# Filtering less than 40 hours a week to consider only full-time employees
+df1 <- df1[uhours >= 40]
+
+## Making a new variable for wage/hour
+
+df1 <- df1[, w := earnwke/uhours]
+df1 <- df1[w >= 10]
+# Wage distribution
+plot1 <- ggplot(df1) +
+ aes(x = w) +
+ geom_density() +
+ theme_minimal()
+
+# Checking the other variables
+datasummary( w*factor(stfips) ~ N + SD + Percent() + Mean, data = df1 )
+datasummary( w*factor(race) ~ N + SD + Percent() + Mean, data = df1 )
+
+datasummary(w + grade92 + age ~ Mean + SD + Min + Max + P25 + P75 + N , data = df1)
+
+
+# Filtering missing values
+to_filter <- sapply(df1, function(x) sum(is.na(x)))
+to_filter[to_filter > 0]
+
+# Out of total 1575 observations 1469 are NA, therefore, we will exclude this variable 
+# Dropping ethnic
+#df1 <- df1[,ethnic := NULL]
+
+# Wage distribution - Right long tail therefore we will take the log of w
+ggplot(df1) +
+ aes(x = w) +
+ geom_density(adjust = 1L, fill = "#112446") +
+ theme_minimal()
+
+# Log wage
+df1 <- df1[, lnw := log(w)]
+
+#log wage distribution - close to normal distribution
+ggplot(df1) +
+ aes(x = lnw) +
+ geom_density() +
+ theme_minimal()
+
+
+
+
+```
+
+
+```{r}
+
+###################
+## Data Cleaning ##
+###################
+
+## V1 ##
+df1 <- df1[,V1 := NULL]
+
+## HHID ##
+df1 <- df1[,hhid := NULL]
+
+## MONTH ##
+df1 <- df1[, intmonth := NULL]
+
+## STFIPS ##
+datasummary( w*factor(stfips) ~ N + SD + Percent() + Mean, data = df1 )
+
+  
+  df1 <- df1[, stfips := NULL]
+  df1 <- df1[, state := NULL]
+
+## WEIGHT ##
+ggplot(df1,aes(weight,w))+
+  geom_point()+
+  geom_smooth(method="loess")
+df1 <- df1[, weight := NULL]
+
+## GRADE ##
+datasummary( w*factor(grade92) ~ N + SD + Percent() + Mean, data = df1)
+  # simplifying education in groups
+df1[grade92 <= 42, education := "no degree"] 
+df1[grade92 == 43, education := "Bsc"]
+df1[grade92 == 44, education := "Msc"] 
+df1[grade92 == 45, education := "Prof"] 
+df1[grade92 == 46, education := "PhD"] 
+
+
+#df1 <- df1[, grade92 = NULL]
+
+df1$education <- factor(df1$education)
+datasummary( w*education ~ N + SD + Percent() + Mean, data = df1 )
+
+
+
+## RACE ##
+datasummary( w*factor(race) ~ N + SD +Percent() + Mean, data = df1 )
+  # creating binary for white as majority observations are white
+df1 <- df1[race == 1, race1 := "white"][race >= 2, race1 := "other"]
+
+df1$race1 <- factor(df1$race1)
+df1 <- df1[, race := NULL]
+  datasummary( w*factor(race1) ~ N + SD + Percent() + Mean, data = df1 )
+# Dropping white as there is not a significant difference in wage
+#df1 <- df1[, white := NULL] 
+
+
+## ETHNIC ##
+# Out of total 1575 observations 1469 are NA, therefore, we will exclude this variable 
+# Dropping ethnic
+df1 <- df1[,ethnic := NULL]
+    
+
+
+## AGE ##
+datasummary( w*factor(age) ~ N + Percent() + Mean, data = df1 )
+  ggplot(df1, aes(x=age, y=w)) +
+    geom_point() +
+    geom_smooth(method="loess")
+  # creating age square for quadratic distribution
+  df1$age2 <- df1$age*df1$age
+
+## SEX ## 
+  # binary variable
+datasummary( w*factor(sex) ~ N + Percent() + Mean, data = df1 )
+
+df1 <- df1[sex == 1, gender := "Male"][sex == 2, gender := "Female"]
+df1$gender <- factor(df1$gender)
+df1 <- df1[,sex := NULL]
+
+
+## MARITAL ##
+datasummary( w*factor(marital) ~ N +SD + Percent() + Mean, data = df1 )
+
+
+df1[marital <= 3, marital_status := "married"] 
+df1[marital == 4 | marital == 5 | marital == 6 , marital_status  := "divorced"]
+df1[marital == 7, marital_status  := "single"] 
+  
+df1$marital_status <- factor(df1$marital_status)
+df1 <- df1[,marital := NULL]
+
+
+## OWNCHILD ##
+datasummary( w*factor(ownchild) ~ N + SD + Mean, data = df1 ) 
+  # creating simpler groups
+df1[ownchild == 0, child := 0] 
+df1[ownchild >= 1, child := 1] 
+
+datasummary( w*factor(child) ~ N + SD + Mean, data = df1 ) 
+df1 <- df1[, ownchild := NULL]
+# chldpres - going to drop this vairable as it the same as ownchild
+df1 <- df1[,chldpres := NULL]
+
+
+## PRCITSHP ##
+datasummary( w*factor(prcitshp) ~ N + Percent() + Mean, data = df1 ) 
+df1[prcitshp == "Native, Born In US" | prcitshp == "Native, Born in PR or US Outlying Area" 
+    | prcitshp == "Native, Born Abroad Of US Parent(s)" , citizen := "native"] 
+df1[prcitshp == "Foreign Born, US Cit By Naturalization" | prcitshp == "Foreign Born, Not a US Citizen" , citizen := "foriegn"]
+
+df1 <- df1[,prcitshp := NULL]
+
+## IND02 ##
+datasummary( w*factor(ind02) ~ N + Percent() + Mean, data = df1 ) 
+  # excluding it from the model
+df1 <- df1[,ind02 := NULL]
+
+## CLASS ##
+# Not including in the model as there is no significant difference in wage
+  datasummary( w*factor(class) ~ N + Percent() + Mean, data = df1 ) 
+ df1[class == "Government - Federal" | class == "Government - Local" | class == "Government - State", company := "government"] 
+df1[class == "Private, For Profit" | class == "Private, Nonprofit" , company := "private"]
+df1 <- df1[,class := NULL]
+
+## UNIONMME ##
+# Not including in the model as there is no significant difference in wage
+datasummary( w*factor(unionmme) ~ N + Percent() + Mean, data = df1 ) 
+  # excluding it from the model
+df1 <- df1[,unionmme := NULL]
+  
+## UNIONMME ## 
+# Same thing as unionmme therefore not including 
+df1 <- df1[,unioncov := NULL]
+
+  
+## LFSR94 ## 
+# Not including as most of the observations are for employed at work
+df1 <- df1[,lfsr94 := NULL]
+  
+```
+
+
+```{r}
+#######################
+## Interaction terms ##
+#######################
+
+# Significant difference between genders in mean wages
+datasummary( w*gender ~ N + Percent() + Mean, data = df1 ) 
+
+# No significant difference between races in wage
+datasummary( w*factor(race1) ~ N + Percent() + Mean, data = df1 )
+
+# No significant difference between races for female but there is difference for males
+datasummary( w*gender*factor(race1) ~ N + Percent() + Mean, data = df1 )
+
+race_gender <- ggplot(df1, aes(x = factor(race1), y = w,
+               fill = factor(gender), color=factor(gender))) +
+  geom_boxplot(alpha=0.8, na.rm=T, outlier.shape = NA, width = 0.8) +
+  stat_boxplot(geom = "errorbar", width = 0.8, size = 0.3, na.rm=T)+
+  scale_color_manual(name="",
+                     values=c('pink','purple')) +
+  scale_fill_manual(name="",
+                    values=c('pink','purple')) +
+  labs(x = "Race",y = "Wage per Hour (USD)")+
+  scale_y_continuous(expand = c(0.01,0.01), limits=c(0, 40), breaks = seq(0,40, 10))+
+  ggthemes::theme_economist() +
+  theme(legend.position = c(0.9,0.2))
+
+# Significant difference between mean wages
+datasummary( w*gender*factor(education) ~ N + Percent() + Mean, data = df1 )
+
+education_gender <- ggplot(df1, aes(x = factor(education), y = w,
+               fill = factor(gender), color=factor(gender))) +
+  geom_boxplot(alpha=0.8, na.rm=T, outlier.shape = NA, width = 0.8) +
+  stat_boxplot(geom = "errorbar", width = 0.8, size = 0.3, na.rm=T)+
+  scale_color_manual(name="",
+                     values=c('pink','purple')) +
+  scale_fill_manual(name="",
+                    values=c('pink','purple')) +
+  labs(x = "Education",y = "Wage per Hour (USD)")+
+  scale_y_continuous(expand = c(0.01,0.01), limits=c(0, 40), breaks = seq(0,40, 10))+
+  ggthemes::theme_economist() +
+  theme(legend.position = c(0.9,0.2))
+
+# Significant difference between genders, marital status in mean wages
+datasummary( w*gender*factor(marital_status) ~ N + Percent() + Mean, data = df1)
+
+marital_gender <- ggplot(df1, aes(x = factor(marital_status), y = w,
+               fill = factor(gender), color=factor(gender))) +
+  geom_boxplot(alpha=0.8, na.rm=T, outlier.shape = NA, width = 0.8) +
+  stat_boxplot(geom = "errorbar", width = 0.8, size = 0.3, na.rm=T)+
+  scale_color_manual(name="",
+                     values=c('pink','purple')) +
+  scale_fill_manual(name="",
+                    values=c('pink','purple')) +
+  labs(x = "Marital Status",y = "Wage per Hour (USD)")+
+  scale_y_continuous(expand = c(0.01,0.01), limits=c(0, 40), breaks = seq(0,40, 10))+
+  ggthemes::theme_economist() +
+  theme(legend.position = c(0.9,0.2))
+
+
+
+# Significant difference between genders, child in mean wages
+datasummary( w*gender*factor(child) ~ N + Percent() + Mean, data = df1)
+
+child_gender <- ggplot(df1, aes(x = factor(child), y = w,
+               fill = factor(gender), color=factor(gender))) +
+  geom_boxplot(alpha=0.8, na.rm=T, outlier.shape = NA, width = 0.8) +
+  stat_boxplot(geom = "errorbar", width = 0.8, size = 0.3, na.rm=T)+
+  scale_color_manual(name="",
+                     values=c('pink','purple')) +
+  scale_fill_manual(name="",
+                    values=c('pink','purple')) +
+  labs(x = "Marital Status",y = "Wage per Hour (USD)")+
+  scale_y_continuous(expand = c(0.01,0.01), limits=c(0, 40), breaks = seq(0,40, 10))+
+  ggthemes::theme_economist() +
+  theme(legend.position = c(0.9,0.2))
+
+# No significant difference between genders, citizen in mean wages - dont include citizen
+datasummary( w*gender*factor(citizen) ~ N + Percent() + Mean, data = df1)
+
+
+# No Significant difference between genders, in govt and private companies in mean wages
+datasummary( w*gender*factor(company) ~ N + Percent() + Mean, data = df1)
+
+
+# No significant difference between mean wages
+datasummary( w*gender*factor(education)*factor(race1) ~ N + Percent() + Mean, data = df1 )
+
+
+# No significant difference between mean wages
+datasummary( w*gender*factor(marital_status)*factor(race1) ~ N + Percent() + Mean, data = df1 )
+
+# Significant difference between mean wages
+datasummary( w*gender*factor(race1)*factor(child) ~ N + Percent() + Mean, data = df1 )
+```
+
+
+```{r}
+#######################
+## Regression Models ##
+#######################
+
+model1 <- as.formula(w ~ education)
+model2 <- as.formula(w ~ education + age + age2 + gender)  
+model3 <- as.formula(w ~ education + age + age2 + gender + marital_status + child)  
+model4 <- as.formula(w ~ education + age + age2 + marital_status + child + education*gender + age*gender + age2*gender + marital_status*gender + child*gender + race1*child*gender)
+
+ 
+reg1 <- feols(model1, data = df1, vcov = 'hetero')
+reg2 <- feols(model2, data = df1, vcov = 'hetero')
+reg3 <- feols(model3, data = df1, vcov = 'hetero')
+reg4 <- feols(model4, data = df1, vcov = 'hetero')
+
+
+
+fitstat_register("k", function(x){length( x$coefficients ) - 1}, "No. Variables")
+
+etable( 'Model1' = reg1 , 'Model2' = reg2 , 'Model3' = reg3 , 'Model4' = reg4 , 
+        fitstat = c('aic','bic','rmse','r2','n','k'), keepFactors = TRUE )
+
+# Simple k-fold cross validation setup:
+# set number of folds to use (must be less than the no. observations)
+k <- 4
+
+# Model 1
+set.seed(250)
+cv1 <- train(model1, df1, method = "lm", trControl = trainControl(method = "cv", number = k))
+
+# Model 2
+set.seed(250)
+cv2 <- train(model2, df1, method = "lm", trControl = trainControl(method = "cv", number = k))
+
+# Model 3
+set.seed(250)
+cv3 <- train(model3, df1, method = "lm", trControl = trainControl(method = "cv", number = k))
+
+# Model 4
+set.seed(250)
+cv4 <- train(model4, df1, method = "lm", trControl = trainControl(method = "cv", number = k))
+
+
+# Calculate RMSE for each fold and the average RMSE as well
+cv <- c("cv1", "cv2", "cv3", "cv4")
+rmse_cv <- c()
+
+for(i in 1:length(cv)){
+  rmse_cv[i] <- sqrt((get(cv[i])$resample[[1]][1]^2 +
+                       get(cv[i])$resample[[1]][2]^2 +
+                       get(cv[i])$resample[[1]][3]^2 +
+                       get(cv[i])$resample[[1]][4]^2)/4)
+}
+
+cv_mat <- data.frame(rbind(cv1$resample[4], "Average"),
+           rbind(cv1$resample[1], rmse_cv[1]),
+           rbind(cv2$resample[1], rmse_cv[2]),
+           rbind(cv3$resample[1], rmse_cv[3]),
+           rbind(cv4$resample[1], rmse_cv[4])
+           )
+
+colnames(cv_mat)<-c("Resample","Model1", "Model2", "Model3", "Model4")
+cv_mat 
+```
+
+```{r}
+
+# Model complexity and out-of-sample RMSE performance
+m_comp <- c()
+models <- c("reg1", "reg2", "reg3", "reg4")
+for( i in 1 : length(cv) ){
+  m_comp[ i ] <- length( get( models[i] )$coefficient  - 1 ) 
+}
+
+m_comp <- tibble( model = models , 
+                  complexity = m_comp,
+                  RMSE = rmse_cv )
+
+ggplot( m_comp , aes( x = complexity , y = RMSE ) ) +
+  geom_point(color='red',size=2) +
+  geom_line(color='blue',size=0.5)+
+  labs(x='Number of explanatory variables',y='Averaged RMSE on test samples',
+       title='Prediction performance and model compexity') +
+  theme_bw()
+```
+
+```{r}
+ggplot(df1, aes(x=predict(reg2, df1), y=w)) + 
+  geom_point(alpha = 0.5) +
+  geom_abline(intercept = 0, slope = 1, size = 0.5) +
+  scale_x_continuous(limits = c(0,30)) + 
+  scale_y_continuous(limits = c(0,60)) +
+  ggthemes::theme_economist()
+```
+
+
