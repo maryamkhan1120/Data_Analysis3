@@ -41,7 +41,10 @@ datasummary_skim(df1)
 
 
 ```{r}
-## Data Cleaning
+###################
+## Data Cleaning ##
+###################
+
 # Filtering less than 40 hours a week to consider only full-time employees
 df1 <- df1[uhours >= 40]
 
@@ -90,4 +93,149 @@ ggplot(df1) +
 
 ```
 
+
+```{r}
+
+###################
+## Data Cleaning ##
+###################
+
+## V1 ##
+df1 <- df1[,V1 := NULL]
+
+## HHID ##
+df1 <- df1[,hhid := NULL]
+
+## MONTH ##
+df1 <- df1[, intmonth := NULL]
+
+## STFIPS ##
+datasummary( w*factor(stfips) ~ N + SD + Percent() + Mean, data = df1 )
+
+  # to simplify regions
+  df1 <- df1[stfips %in% c("WA", "OR", "MT", "ID", "WY", "NV", "UT", "CO", "AZ", "NM", "HI", "AK", "CA"), region := "west"]
+  df1 <- df1[stfips %in% c("ND", "SD", "NE", "KS", "MN", "IA", "MO", "WI", "IL", "IN", "MI", "OH"), region := "midwest"]
+  df1 <- df1[stfips %in% c("OK", "TX", "AR", "LA", "KY", "TN", "MS", "AL", "WV", "VA", "NC", "SC", "GA", "FL", "DC","MD","DE"), region := "south"]
+  df1 <- df1[stfips %in% c("PA", "NY", "VT", "NH", "ME","MA","RI","CT","NJ"), region := "north-east"]
+
+  df1 <- df1[, stfips := NULL]
+  df1 <- df1[, state := NULL]
+
+## WEIGHT ##
+ggplot(df1,aes(weight,w))+
+  geom_point()+
+  geom_smooth(method="loess")
+df1 <- df1[, weight := NULL]
+
+## GRADE ##
+datasummary( w*factor(grade92) ~ N + SD + Percent() + Mean, data = df1)
+  # simplifying education in groups
+df1[grade92 <= 42, education := "no degree"] 
+df1[grade92 == 43, education := "Bsc"]
+df1[grade92 == 44, education := "Msc"] 
+df1[grade92 == 45, education := "Prof"] 
+df1[grade92 == 46, education := "PhD"] 
+df1 <- df1[, grade92 := NULL]
+
+df1$education <- factor(df1$education)
+datasummary( w*education ~ N + SD + Percent() + Mean, data = df1 )
+
+
+
+## RACE ##
+datasummary( w*factor(race) ~ N + SD +Percent() + Mean, data = df1 )
+  # creating binary for white as majority observations are white
+df1[race == 1, white := 1]
+df1[race >= 2, white := 0]
+df1$white <- factor(df1$white)
+df1 <- df1[, race := NULL]
+  datasummary( w*factor(white) ~ N + SD + Percent() + Mean, data = df1 )
+# Dropping white as there is not a significant difference in wage
+#df1 <- df1[, white := NULL] 
+
+
+## ETHNIC ##
+# Out of total 1575 observations 1469 are NA, therefore, we will exclude this variable 
+# Dropping ethnic
+df1 <- df1[,ethnic := NULL]
+    
+
+
+## AGE ##
+datasummary( w*factor(age) ~ N + Percent() + Mean, data = df1 )
+  ggplot(df1, aes(x=age, y=w)) +
+    geom_point() +
+    geom_smooth(method="loess")
+  # creating age square for quadritic distribution
+  df1$age2 <- df1$age*df1$age
+
+## SEX ## 
+  # binary variable
+datasummary( w*factor(sex) ~ N + Percent() + Mean, data = df1 )
+df1[sex == 2, female := 1]
+df1[sex == 1, female := 0]
+df1$female <- factor(df1$female)
+df1 <- df1[,sex := NULL]
+
+
+## MARITAL ##
+datasummary( w*factor(marital_status) ~ N +SD + Percent() + Mean, data = df1 )
+
+
+df1[marital <= 3, marital_status := "married"] 
+df1[marital == 4 | marital == 5 | marital == 6 , marital_status  := "divorced"]
+df1[marital == 7, marital_status  := "single"] 
+  
+df1$marital_status <- factor(df1$marital_status)
+df1 <- df1[,marital := NULL]
+
+
+## OWNCHILD ##
+datasummary( w*factor(ownchild) ~ N + SD + Mean, data = df1 ) 
+  # creating simpler groups
+df1[ownchild == 0, child := 0] 
+df1[ownchild >= 1, child := 1] 
+
+  datasummary( w*factor(child) ~ N + SD + Mean, data = df1 ) 
+df1 <- df1[, ownchild := NULL]
+# chldpres - going to drop this vairable as it the same as ownchild
+df1 <- df1[,chldpres := NULL]
+
+
+## PRCITSHP ##
+datasummary( w*factor(prcitshp) ~ N + Percent() + Mean, data = df1 ) 
+df1[prcitshp == "Native, Born In US" | prcitshp == "Native, Born in PR or US Outlying Area" 
+    | prcitshp == "Native, Born Abroad Of US Parent(s)" , native := 1] 
+df1[prcitshp == "Foreign Born, US Cit By Naturalization" | prcitshp == "Foreign Born, Not a US Citizen" , native := 0]
+
+df1 <- df1[,prcitshp := NULL]
+
+## IND02 ##
+datasummary( w*factor(ind02) ~ N + Percent() + Mean, data = df1 ) 
+  # excluding it from the model
+df1 <- df1[,ind02 := NULL]
+
+## CLASS ##
+# Not including in the model as there is no significant difference in wage
+  datasummary( w*factor(private) ~ N + Percent() + Mean, data = df1 ) 
+ df1[class == "Government - Federal" | class == "Government - Local" | class == "Government - State", private := 0] 
+df1[class == "Private, For Profit" | class == "Private, Nonprofit" , private := 1]
+df1 <- df1[,class := NULL]
+
+## UNIONMME ##
+# Not including in the model as there is no significant difference in wage
+datasummary( w*factor(unionmme) ~ N + Percent() + Mean, data = df1 ) 
+  # exlude from model
+df1 <- df1[,unionmme := NULL]
+  
+## UNIONMME ## 
+# Same thing as unionmme therefore not including 
+df1 <- df1[,unioncov := NULL]
+
+  
+## LFSR94 ## 
+# Not including as most of the observations are for employed at work
+df1 <- df1[,lfsr94 := NULL]
+  
+```
 
