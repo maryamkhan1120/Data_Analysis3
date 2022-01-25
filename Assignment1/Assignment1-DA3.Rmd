@@ -6,28 +6,36 @@ output: html_document
 ---
 ```{r}
 # Loading Libraries
-
-library(data.table)
-library(tidyverse)
+rm(list = ls())
+ 
+library(tidyverse) 
 library(modelsummary)
 library(fixest)
-library(caret)
-library(skimr)
-library(grid)
-library(glmnet)
-library(cowplot)
+library(kableExtra)
+library(data.table)
 library(ggplot2)
+library(GGally)
+library(viridis)
+library(caret)
+library(grid)
+library(dplyr)
+library(gridExtra)
+library(grid)
+library(viridis)
 
+#install.packages("glmnet")
+```
+
+```{r}
 #Loading the data
 df <- fread("https://osf.io/4ay9x/download")
-```
-```{r}
+
 ## 0800 - Accountants and auditors
 occ <- df[, .(count = .N), by=  occ2012]
 
 ## Choosing occupation
 df1 <- df[occ2012 == 0800]
-rm(df)
+#rm(df)
 
 str(df1)
 
@@ -71,7 +79,7 @@ to_filter[to_filter > 0]
 
 # Out of total 1575 observations 1469 are NA, therefore, we will exclude this variable 
 # Dropping ethnic
-df1 <- df1[,ethnic := NULL]
+#df1 <- df1[,ethnic := NULL]
 
 # Wage distribution - Right long tail therefore we will take the log of w
 ggplot(df1) +
@@ -112,12 +120,7 @@ df1 <- df1[, intmonth := NULL]
 ## STFIPS ##
 datasummary( w*factor(stfips) ~ N + SD + Percent() + Mean, data = df1 )
 
-  # to simplify regions
-  df1 <- df1[stfips %in% c("WA", "OR", "MT", "ID", "WY", "NV", "UT", "CO", "AZ", "NM", "HI", "AK", "CA"), region := "west"]
-  df1 <- df1[stfips %in% c("ND", "SD", "NE", "KS", "MN", "IA", "MO", "WI", "IL", "IN", "MI", "OH"), region := "midwest"]
-  df1 <- df1[stfips %in% c("OK", "TX", "AR", "LA", "KY", "TN", "MS", "AL", "WV", "VA", "NC", "SC", "GA", "FL", "DC","MD","DE"), region := "south"]
-  df1 <- df1[stfips %in% c("PA", "NY", "VT", "NH", "ME","MA","RI","CT","NJ"), region := "north-east"]
-
+  
   df1 <- df1[, stfips := NULL]
   df1 <- df1[, state := NULL]
 
@@ -135,7 +138,9 @@ df1[grade92 == 43, education := "Bsc"]
 df1[grade92 == 44, education := "Msc"] 
 df1[grade92 == 45, education := "Prof"] 
 df1[grade92 == 46, education := "PhD"] 
-df1 <- df1[, grade92 := NULL]
+
+
+#df1 <- df1[, grade92 = NULL]
 
 df1$education <- factor(df1$education)
 datasummary( w*education ~ N + SD + Percent() + Mean, data = df1 )
@@ -166,7 +171,7 @@ datasummary( w*factor(age) ~ N + Percent() + Mean, data = df1 )
   ggplot(df1, aes(x=age, y=w)) +
     geom_point() +
     geom_smooth(method="loess")
-  # creating age square for quadritic distribution
+  # creating age square for quadratic distribution
   df1$age2 <- df1$age*df1$age
 
 ## SEX ## 
@@ -196,7 +201,7 @@ datasummary( w*factor(ownchild) ~ N + SD + Mean, data = df1 )
 df1[ownchild == 0, child := 0] 
 df1[ownchild >= 1, child := 1] 
 
-  datasummary( w*factor(child) ~ N + SD + Mean, data = df1 ) 
+datasummary( w*factor(child) ~ N + SD + Mean, data = df1 ) 
 df1 <- df1[, ownchild := NULL]
 # chldpres - going to drop this vairable as it the same as ownchild
 df1 <- df1[,chldpres := NULL]
@@ -225,7 +230,7 @@ df1 <- df1[,class := NULL]
 ## UNIONMME ##
 # Not including in the model as there is no significant difference in wage
 datasummary( w*factor(unionmme) ~ N + Percent() + Mean, data = df1 ) 
-  # exlude from model
+  # excluding it from the model
 df1 <- df1[,unionmme := NULL]
   
 ## UNIONMME ## 
@@ -243,6 +248,97 @@ df1 <- df1[,lfsr94 := NULL]
 ```{r}
 #######################
 ## Interaction terms ##
-######################
+#######################
+
+# Significant difference between genders in mean wages
+datasummary( w*gender ~ N + Percent() + Mean, data = df1 ) 
+
+# No significant difference between races in wage
+datasummary( w*factor(race1) ~ N + Percent() + Mean, data = df1 )
+
+# No significant difference between races for female but there is difference for males
+datasummary( w*gender*factor(race1) ~ N + Percent() + Mean, data = df1 )
+
+race_gender <- ggplot(df1, aes(x = factor(race1), y = w,
+               fill = factor(gender), color=factor(gender))) +
+  geom_boxplot(alpha=0.8, na.rm=T, outlier.shape = NA, width = 0.8) +
+  stat_boxplot(geom = "errorbar", width = 0.8, size = 0.3, na.rm=T)+
+  scale_color_manual(name="",
+                     values=c('pink','purple')) +
+  scale_fill_manual(name="",
+                    values=c('pink','purple')) +
+  labs(x = "Race",y = "Wage per Hour (USD)")+
+  scale_y_continuous(expand = c(0.01,0.01), limits=c(0, 40), breaks = seq(0,40, 10))+
+  ggthemes::theme_economist() +
+  theme(legend.position = c(0.9,0.2))
+
+# Significant difference between mean wages
+datasummary( w*gender*factor(education) ~ N + Percent() + Mean, data = df1 )
+
+education_gender <- ggplot(df1, aes(x = factor(education), y = w,
+               fill = factor(gender), color=factor(gender))) +
+  geom_boxplot(alpha=0.8, na.rm=T, outlier.shape = NA, width = 0.8) +
+  stat_boxplot(geom = "errorbar", width = 0.8, size = 0.3, na.rm=T)+
+  scale_color_manual(name="",
+                     values=c('pink','purple')) +
+  scale_fill_manual(name="",
+                    values=c('pink','purple')) +
+  labs(x = "Education",y = "Wage per Hour (USD)")+
+  scale_y_continuous(expand = c(0.01,0.01), limits=c(0, 40), breaks = seq(0,40, 10))+
+  ggthemes::theme_economist() +
+  theme(legend.position = c(0.9,0.2))
+
+# Significant difference between genders, marital status in mean wages
+datasummary( w*gender*factor(marital_status) ~ N + Percent() + Mean, data = df1)
+
+marital_gender <- ggplot(df1, aes(x = factor(marital_status), y = w,
+               fill = factor(gender), color=factor(gender))) +
+  geom_boxplot(alpha=0.8, na.rm=T, outlier.shape = NA, width = 0.8) +
+  stat_boxplot(geom = "errorbar", width = 0.8, size = 0.3, na.rm=T)+
+  scale_color_manual(name="",
+                     values=c('pink','purple')) +
+  scale_fill_manual(name="",
+                    values=c('pink','purple')) +
+  labs(x = "Marital Status",y = "Wage per Hour (USD)")+
+  scale_y_continuous(expand = c(0.01,0.01), limits=c(0, 40), breaks = seq(0,40, 10))+
+  ggthemes::theme_economist() +
+  theme(legend.position = c(0.9,0.2))
+
+
+
+# Significant difference between genders, child in mean wages
+datasummary( w*gender*factor(child) ~ N + Percent() + Mean, data = df1)
+
+child_gender <- ggplot(df1, aes(x = factor(child), y = w,
+               fill = factor(gender), color=factor(gender))) +
+  geom_boxplot(alpha=0.8, na.rm=T, outlier.shape = NA, width = 0.8) +
+  stat_boxplot(geom = "errorbar", width = 0.8, size = 0.3, na.rm=T)+
+  scale_color_manual(name="",
+                     values=c('pink','purple')) +
+  scale_fill_manual(name="",
+                    values=c('pink','purple')) +
+  labs(x = "Marital Status",y = "Wage per Hour (USD)")+
+  scale_y_continuous(expand = c(0.01,0.01), limits=c(0, 40), breaks = seq(0,40, 10))+
+  ggthemes::theme_economist() +
+  theme(legend.position = c(0.9,0.2))
+
+# No significant difference between genders, citizen in mean wages - dont include citizen
+datasummary( w*gender*factor(citizen) ~ N + Percent() + Mean, data = df1)
+
+
+# No Significant difference between genders, in govt and private companies in mean wages
+datasummary( w*gender*factor(company) ~ N + Percent() + Mean, data = df1)
+
+
+# No significant difference between mean wages
+datasummary( w*gender*factor(education)*factor(race1) ~ N + Percent() + Mean, data = df1 )
+
+
+# No significant difference between mean wages
+datasummary( w*gender*factor(marital_status)*factor(race1) ~ N + Percent() + Mean, data = df1 )
+
+# Significant difference between mean wages
+datasummary( w*gender*factor(race1)*factor(child) ~ N + Percent() + Mean, data = df1 )
 ```
+
 
