@@ -27,18 +27,67 @@ occ <- df[, .(count = .N), by=  occ2012]
 
 ## Choosing occupation
 df1 <- df[occ2012 == 0800]
+rm(df)
 
 str(df1)
 
-library(ggplot2)
 
+
+datasummary_skim(df1)
+  
+
+
+```
+
+
+```{r}
+## Data Cleaning
+# Filtering less than 40 hours a week to consider only full-time employees
+df1 <- df1[uhours >= 40]
+
+## Making a new variable for wage/hour
+
+df1 <- df1[, w := earnwke/uhours]
+df1 <- df1[w >= 10]
+# Wage distribution
+plot1 <- ggplot(df1) +
+ aes(x = w) +
+ geom_density() +
+ theme_minimal()
+
+# Checking the other variables
+datasummary( w*factor(stfips) ~ N + SD + Percent() + Mean, data = df1 )
+datasummary( w*factor(race) ~ N + SD + Percent() + Mean, data = df1 )
+
+datasummary(w + grade92 + age ~ Mean + SD + Min + Max + P25 + P75 + N , data = df1)
+
+
+# Filtering missing values
+to_filter <- sapply(df1, function(x) sum(is.na(x)))
+to_filter[to_filter > 0]
+
+# Out of total 1575 observations 1469 are NA, therefore, we will exclude this variable 
+# Dropping ethnic
+df1 <- df1[,ethnic := NULL]
+
+# Wage distribution - Right long tail therefore we will take the log of w
 ggplot(df1) +
  aes(x = w) +
  geom_density(adjust = 1L, fill = "#112446") +
  theme_minimal()
 
-## Making a new variable for wage/hour
+# Log wage
+df1 <- df1[, lnw := log(w)]
 
-df1 <- df1[, w := earnwke/uhours]
+#log wage distribution - close to normal distribution
+ggplot(df1) +
+ aes(x = lnw) +
+ geom_density() +
+ theme_minimal()
+
+
+
+
 ```
+
 
