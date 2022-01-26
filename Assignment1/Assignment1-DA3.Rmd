@@ -1,10 +1,11 @@
 ---
-title: "Untitled"
+title: "Data Analysis 3 - Assignment 1"
 author: "Maryam Khan"
-date: "1/23/2022"
-output: html_document
+output: 
+  pdf_document:
+    extra_dependencies: ["flafter"]
 ---
-```{r}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 # Loading Libraries
 rm(list = ls())
  
@@ -20,13 +21,12 @@ library(caret)
 library(grid)
 library(dplyr)
 library(gridExtra)
-library(grid)
 library(viridis)
-
+library(knitr)
 #install.packages("glmnet")
 ```
 
-```{r}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 #Loading the data
 df <- fread("https://osf.io/4ay9x/download")
 
@@ -48,7 +48,7 @@ datasummary_skim(df1)
 ```
 
 
-```{r}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 ###################
 ## Data Cleaning ##
 ###################
@@ -88,13 +88,13 @@ ggplot(df1) +
  theme_minimal()
 
 # Log wage
-df1 <- df1[, lnw := log(w)]
+#df1 <- df1[, lnw := log(w)]
 
 #log wage distribution - close to normal distribution
-ggplot(df1) +
- aes(x = lnw) +
- geom_density() +
- theme_minimal()
+#ggplot(df1) +
+# aes(x = lnw) +
+# geom_density() +
+# theme_minimal()
 
 
 
@@ -102,7 +102,7 @@ ggplot(df1) +
 ```
 
 
-```{r}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 
 ###################
 ## Data Cleaning ##
@@ -174,6 +174,7 @@ datasummary( w*factor(age) ~ N + Percent() + Mean, data = df1 )
   # creating age square for quadratic distribution
   df1$age2 <- df1$age*df1$age
 
+  
 ## SEX ## 
   # binary variable
 datasummary( w*factor(sex) ~ N + Percent() + Mean, data = df1 )
@@ -203,7 +204,7 @@ df1[ownchild >= 1, child := 1]
 
 datasummary( w*factor(child) ~ N + SD + Mean, data = df1 ) 
 df1 <- df1[, ownchild := NULL]
-# chldpres - going to drop this vairable as it the same as ownchild
+# chldpres - going to drop this variable as it the same as ownchild
 df1 <- df1[,chldpres := NULL]
 
 
@@ -245,7 +246,7 @@ df1 <- df1[,lfsr94 := NULL]
 ```
 
 
-```{r}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 #######################
 ## Interaction terms ##
 #######################
@@ -341,4 +342,282 @@ datasummary( w*gender*factor(marital_status)*factor(race1) ~ N + Percent() + Mea
 datasummary( w*gender*factor(race1)*factor(child) ~ N + Percent() + Mean, data = df1 )
 ```
 
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+#######################
+## Regression Models ##
+#######################
+
+model1 <- as.formula(w ~ education)
+model2 <- as.formula(w ~ education + age + age2 + gender)  
+model3 <- as.formula(w ~ education + age + age2 + gender + marital_status + child)  
+model4 <- as.formula(w ~ education + age + age2 + marital_status + child + education*gender + age*gender + age2*gender + marital_status*gender + child*gender + race1*child*gender)
+
+ 
+reg1 <- feols(model1, data = df1, vcov = 'hetero')
+reg2 <- feols(model2, data = df1, vcov = 'hetero')
+reg3 <- feols(model3, data = df1, vcov = 'hetero')
+reg4 <- feols(model4, data = df1, vcov = 'hetero')
+
+
+
+fitstat_register("k", function(x){length( x$coefficients ) - 1}, "No. Variables")
+
+etable <- etable( 'Model1' = reg1 , 'Model2' = reg2 , 'Model3' = reg3 , 'Model4' = reg4 , 
+        fitstat = c('aic','bic','rmse','r2','n','k'), keepFactors = TRUE )
+
+# Simple k-fold cross validation setup:
+# set number of folds to use (must be less than the no. observations)
+k <- 4
+
+# Model 1
+set.seed(250)
+cv1 <- train(model1, df1, method = "lm", trControl = trainControl(method = "cv", number = k))
+
+# Model 2
+set.seed(250)
+cv2 <- train(model2, df1, method = "lm", trControl = trainControl(method = "cv", number = k))
+
+# Model 3
+set.seed(250)
+cv3 <- train(model3, df1, method = "lm", trControl = trainControl(method = "cv", number = k))
+
+# Model 4
+set.seed(250)
+cv4 <- train(model4, df1, method = "lm", trControl = trainControl(method = "cv", number = k))
+
+
+# Calculate RMSE for each fold and the average RMSE as well
+cv <- c("cv1", "cv2", "cv3", "cv4")
+rmse_cv <- c()
+
+for(i in 1:length(cv)){
+  rmse_cv[i] <- sqrt((get(cv[i])$resample[[1]][1]^2 +
+                       get(cv[i])$resample[[1]][2]^2 +
+                       get(cv[i])$resample[[1]][3]^2 +
+                       get(cv[i])$resample[[1]][4]^2)/4)
+}
+
+cv_mat <- data.frame(rbind(cv1$resample[4], "Average"),
+           rbind(cv1$resample[1], rmse_cv[1]),
+           rbind(cv2$resample[1], rmse_cv[2]),
+           rbind(cv3$resample[1], rmse_cv[3]),
+           rbind(cv4$resample[1], rmse_cv[4])
+           )
+
+colnames(cv_mat)<-c("Resample","Model1", "Model2", "Model3", "Model4")
+cv_mat 
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+# Model complexity and out-of-sample RMSE performance
+m_comp <- c()
+models <- c("reg1", "reg2", "reg3", "reg4")
+for( i in 1 : length(cv) ){
+  m_comp[ i ] <- length( get( models[i] )$coefficient  - 1 ) 
+}
+
+m_comp <- tibble( model = models , 
+                  complexity = m_comp,
+                  RMSE = rmse_cv )
+
+prediction_graph <- ggplot( m_comp , aes( x = complexity , y = RMSE ) ) +
+  geom_point(color='red',size=2) +
+  geom_line(color='blue',size=0.5)+
+  labs(x='Number of explanatory variables',y='Averaged RMSE on test samples',
+       title='Prediction performance and model compexity') +
+  theme_bw()
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+Model2_graph <- ggplot(df1, aes(x=predict(reg2, df1), y=w)) + 
+  geom_point(alpha = 0.5) +
+  geom_abline(intercept = 0, slope = 1, size = 0.5) +
+  scale_x_continuous(limits = c(0,30)) + 
+  scale_y_continuous(limits = c(0,60)) +
+  scale_color_viridis(discrete = TRUE)+
+  scale_fill_viridis(discrete = TRUE) +
+  labs(x='Regression 2 - Prediction',y='Wage per hour (USD)',
+       title='Prediction of Model 2') +
+  theme_bw()
+```
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+####################
+## Visualizations ##
+####################
+
+# P05 <- function(x){ quantile(x,.05,na.rm=T)}
+# P95 <- function(x){ quantile(x,.95,na.rm=T)}
+# summary_table <-
+# datasummary(
+# (`Weekly earnings` = earnwke) +
+# (`Weekly hours worked` = uhours) +
+# (`Earning per hour` = w) +
+# (`Gender` = gender) +
+# (`Education Level` = education) +
+# (`Age` = age) +
+# (`Marital Status` = marital_status) +
+# (`Has child` = child) ~ (Median + Mean + SD + Min + Max + P05 + P95 + N),
+# data = df1,
+# title = "Descriptive Summary Statistics" ) %>%
+# kable_styling(latex_options = c("HOLD_position","scale_down"))
+
+#datasummary(w + factor(education) + age + factor(gender) + factor(marital_status) + child + factor(race1) ~ Median + Mean + SD + Min + Max + P05 + P95 + N , data = df1)
+########################
+
+
+
+##########################
+
+
+# Box plot of hourly wage for each gender
+j_gender <- ggplot(df1,aes(factor(gender), w, color = "#00AFBB")) + 
+  geom_boxplot(alpha = 0.1, frame = FALSE) + 
+  geom_jitter(height = 0, width = 0.1, alpha = 0.1) +
+  scale_color_viridis(discrete = TRUE)+
+  scale_fill_viridis(discrete = TRUE) +
+  theme_bw() +
+  theme(legend.position = "none") +
+  labs(x = "Gender", y = "Wage per hour (USD)")
+
+# Box plot of hourly wage for levels of education
+x1  <- factor(df1$education, levels=c("no degree", "Bsc", "Msc", "Prof", "PhD"))
+
+j_education <- ggplot(df1,aes(factor(x1), w, color = "#00AFBB" )) + 
+  geom_boxplot(alpha = 0.1, frame = FALSE) + 
+  geom_jitter(height = 0, width = 0.1, alpha = 0.1) +
+  scale_color_viridis(discrete = TRUE) +
+  scale_fill_viridis(discrete = TRUE) +
+  theme_bw() +
+  theme(legend.position = "none") +
+  labs(x = "Education", y = "Wage per hour (USD)")
+
+# Box plot of hourly wage for work sector
+x2  <- factor(df1$marital_status, levels=c("single", "married", "divorced"))
+
+j_marital <- ggplot(df1,aes(factor(x2), w, color = "#00AFBB" )) + 
+  geom_boxplot(alpha = 0.1, frame = FALSE) + 
+  geom_jitter(height = 0, width = 0.1, alpha = 0.1) +
+  scale_color_viridis(discrete = TRUE) +
+  scale_fill_viridis(discrete = TRUE) +
+  theme_bw()+
+  theme(legend.position = "none", axis.text.x = element_text(angle= 45, vjust=.5)) +
+  labs(x = "Marital Status", y = "Wage per hour (USD)")
+
+# Box plot for hourly wage if the individual has a child or no
+j_child <- ggplot(df1,aes(factor(child), w, color = "#00AFBB" )) + 
+  geom_boxplot(alpha = 0.1, frame = FALSE) + 
+  geom_jitter(height = 0, width = 0.1, alpha = 0.1) +
+  scale_color_viridis(discrete = TRUE) +
+  scale_fill_viridis(discrete = TRUE) +
+  theme_bw() +
+  theme(legend.position = "none") +
+  scale_x_discrete(labels = c("No", "Yes")) +
+  labs(x = "Child", y = "Wage per hour (USD)")
+
+
+############################
+
+# 2 variable boxplots
+
+box_education_gender <- ggplot(df1, aes(x = factor(x1), y = w,
+               fill = gender, color=gender)) +
+  geom_boxplot(alpha=0.8, na.rm=T, outlier.shape = NA, width = 0.8) +
+  stat_boxplot(geom = "errorbar", width = 0.8, size = 0.3, na.rm=T)+
+  scale_color_viridis(discrete = TRUE) +
+  scale_fill_viridis(discrete = TRUE) +
+  labs(x = "Education",y = "Wage per Hour (USD)")+
+  scale_y_continuous(expand = c(0.01,0.01), limits=c(0, 40), breaks = seq(0,40, 10))+
+ theme_bw() 
+#+ theme(legend.position = c(0.9,0.2))
+
+
+box_race_gender <- ggplot(df1, aes(x = factor(race1), y = w,
+               fill = gender, color=gender)) +
+  geom_boxplot(alpha=0.8, na.rm=T, outlier.shape = NA, width = 0.8) +
+  stat_boxplot(geom = "errorbar", width = 0.8, size = 0.3, na.rm=T)+
+  scale_color_viridis(discrete = TRUE) +
+  scale_fill_viridis(discrete = TRUE) +
+  labs(x = "Race",y = "Wage per Hour (USD)")+
+  scale_y_continuous(expand = c(0.01,0.01), limits=c(0, 40), breaks = seq(0,40, 10))+
+  theme_bw() 
+
+box_marital_gender <- ggplot(df1, aes(x = factor(marital_status), y = w,
+               fill =gender, color=gender)) +
+  geom_boxplot(alpha=0.8, na.rm=T, outlier.shape = NA, width = 0.8) +
+  stat_boxplot(geom = "errorbar", width = 0.8, size = 0.3, na.rm=T)+
+  scale_color_viridis(discrete = TRUE) +
+  scale_fill_viridis(discrete = TRUE) +
+  labs(x = "Marital Status",y = "Wage per Hour (USD)")+
+  scale_y_continuous(expand = c(0.01,0.01), limits=c(0, 40), breaks = seq(0,40, 10))+
+  theme_bw() 
+
+
+box_child_gender <- ggplot(df1, aes(x = factor(child), y = w,
+               fill = gender, color=gender)) +
+  geom_boxplot(alpha=0.8, na.rm=T, outlier.shape = NA, width = 0.8) +
+  stat_boxplot(geom = "errorbar", width = 0.8, size = 0.3, na.rm=T)+
+  scale_color_viridis(discrete = TRUE) +
+  scale_fill_viridis(discrete = TRUE) +
+  labs(x = "Child",y = "Wage per Hour (USD)")+
+  scale_x_discrete(labels = c("No", "Yes")) +
+  scale_y_continuous(expand = c(0.01,0.01), limits=c(0, 40), breaks = seq(0,40, 10))+
+  theme_bw()  
+```
+
+
+
+\newpage
+# Appendix
+
+
+## Boxplots
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+grid.arrange( grobs = list(j_gender, j_education, j_child, j_marital ), ncol = 2)
+```
+
+\newpage
+## Boxplots with 2 variables
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+grid.arrange( grobs = list(box_education_gender, box_race_gender, box_marital_gender, box_child_gender ), ncol = 2)
+```
+
+## Prediction performance & model complexity
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+prediction_graph
+```
+
+
+\newpage
+
+## Best fit model - Model 2
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+Model2_graph
+```
+\newpage
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+etable1 <- etable( 'Model1' = reg1 , 'Model2' = reg2 , 'Model3' = reg3 , 'Model4' = reg4 , 
+        fitstat = c('aic','bic','rmse','r2','n','k'), keepFactors = TRUE ) %>% kbl(caption = "", booktabs = T) %>%
+  kable_styling(full_width = T)
+
+etable1
+```
+
+
+\newpage
+## Cross-validated RMSE 
+```{r message=FALSE, warning=FALSE, include=FALSE}
+aa <- kbl(cv_mat) %>%
+  kable_paper("striped", full_width = T) %>%
+  row_spec(5, bold = T)
+```
+
+```{r echo=FALSE, fig.align='left', show.fig = 'hold', message=FALSE, warning=FALSE}
+aa
+```
 
