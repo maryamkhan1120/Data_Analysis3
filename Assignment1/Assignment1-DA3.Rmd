@@ -596,6 +596,23 @@ row_spec(0, bold = T)
 ```
 
 
+
+### Overview
+The purpose of this assignment is to predict the wages of 0800 - Accountants and auditors based on different variables using 4 predictive models using linear regression. The data used in this project is the Current Population Survey (CPS) by the Bureau of Labor Statistics.
+
+### Data cleaning
+To make sure our analysis is accurate we filtered and cleaned the data by calculating wage per hour by dividing the number of hours worked per week and the weekly wage.
+The next step was to individually check each variable and filter it according to the analysis. We first filtered less than 40 hours of work a week to consider only full-time employees. Regrouped the education variable into 5 separate segments with no degree being the least level of education and PhD being the highest. The race variable had 25 unique values but majority of the observations of the data set were white, hence, we decided to group them in 2 segments white and other. We checked the distribution for the age variable and it was non-linear so we decided to include the age squared variable as it helps in capturing the non-linearity. The ethnic variable was dropped as out of total 1575 observations 1469 observations were NA. The marital status variable along with the child variable, citizenship variable, class were all used as categorical variables. The union variables were excluded as there was no significant change in wage in being part of a union. The RHS variables we used were education, age, gender, marital status, race and child.
+
+### Interaction Terms
+To find the best prediction in terms of live data we used interaction terms. These interaction terms make the model more complex with more coefficients. To evaluate which interaction terms to include in the model we check the multicolinearity between the terms. We did this by comparing the mean wages while interacting these variables. For the purpose of this analysis we included an interaction term with gender and the main variables and a 3 factor interaction term with race, child and gender.
+
+### Regression Model - RMSE & BIC
+We made 4 models starting with model 1 being the simplest one and model 4 being the most complex and used OLS regression to analyse the data. To find out which model gives the closest prediction we used RMSE and BIC comparison. According to the regression the RMSE value of the full sample was the lowest for model 4, however, the RMSE value for model 2 was 12.72 and model 3 was 12.663. This shows that there is no significant different between the two models. To further narrow down and decide which model to pick we will look at the cross validated RMSE values for all 4 models. The cross-validated RMSE was the lowest for model 3, however, there was a difference of less than 0.01 between model 3 and model 2. Since the difference is so insignificant we will now look at BIC. BIC penalizes model complexity and thus helps us in avoiding over-fitting the original data. In our results we can see Model 2 has the lowest BIC value. The BIC values fall from model 1 to 2 but after the model 2 the value starts to increase. Therefore, we can conclude that Model 2 is the best fit model with closet predictions to live data.   
+
+
+
+
 \newpage
 # Appendix
 
