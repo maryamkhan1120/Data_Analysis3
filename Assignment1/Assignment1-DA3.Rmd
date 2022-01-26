@@ -566,8 +566,34 @@ box_child_gender <- ggplot(df1, aes(x = factor(child), y = w,
   scale_x_discrete(labels = c("No", "Yes")) +
   scale_y_continuous(expand = c(0.01,0.01), limits=c(0, 40), breaks = seq(0,40, 10))+
   theme_bw()  
-```
+##########
 
+#Prediction model table
+reg_results <- etable( reg1 , reg2 , reg3 , reg4 , fitstat = c('aic','bic','rmse','r2','n','k'), keepFactors = TRUE )
+
+reg_stats <- setDF(reg_results)
+
+models <- c("Model 1", "Model 2", "Model 3", "Model 4")
+rmse <- c(reg_stats$reg1[31], reg_stats$reg2[31], reg_stats$reg3[31] ,reg_stats$reg4[31])
+bic <- c(reg_stats$reg1[30], reg_stats$reg2[30], reg_stats$reg3[30] ,reg_stats$reg4[30])
+vars <- c(reg_stats$reg1[34], reg_stats$reg2[34], reg_stats$reg3[34] ,reg_stats$reg4[34])
+
+reg_results_table <- data.frame(models, bic, rmse, vars)
+
+colnames(reg_results_table)<- c("Model", "BIC", "RMSE","No. of coeff")
+
+#reg_results_table <- reg_results_table %>% mutate_if(is.numeric, format) %>% 
+#  kable_paper("striped", full_width = T) 
+
+bb <- kbl(reg_results_table) %>%
+  kable_paper("striped", full_width = T)%>%
+  row_spec(0, bold = T)
+
+aa <- kbl(cv_mat) %>%
+  kable_paper("striped", full_width = T) %>%
+  row_spec(5, bold = T) %>%
+row_spec(0, bold = T)
+```
 
 
 \newpage
@@ -599,6 +625,20 @@ prediction_graph
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 Model2_graph
 ```
+
+
+\newpage
+## Full Sample RMSE and BIC
+```{r echo=FALSE, fig.align='left', show.fig = 'hold', message=FALSE, warning=FALSE}
+bb
+```
+
+## Cross-validated RMSE 
+```{r echo=FALSE, fig.align='left', show.fig = 'hold', message=FALSE, warning=FALSE}
+aa
+```
+
+
 \newpage
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 etable1 <- etable( 'Model1' = reg1 , 'Model2' = reg2 , 'Model3' = reg3 , 'Model4' = reg4 , 
@@ -609,15 +649,7 @@ etable1
 ```
 
 
-\newpage
-## Cross-validated RMSE 
-```{r message=FALSE, warning=FALSE, include=FALSE}
-aa <- kbl(cv_mat) %>%
-  kable_paper("striped", full_width = T) %>%
-  row_spec(5, bold = T)
-```
+```{r}
 
-```{r echo=FALSE, fig.align='left', show.fig = 'hold', message=FALSE, warning=FALSE}
-aa
 ```
 
