@@ -612,7 +612,6 @@ We made 4 models starting with model 1 being the simplest one and model 4 being 
 
 
 
-
 \newpage
 # Appendix
 
@@ -663,10 +662,5 @@ etable1 <- etable( 'Model1' = reg1 , 'Model2' = reg2 , 'Model3' = reg3 , 'Model4
   kable_styling(full_width = T)
 
 etable1
-```
-
-
-```{r}
-
 ```
 
