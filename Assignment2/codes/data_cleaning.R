@@ -1,7 +1,7 @@
 #############################
 ##     Data analysis 3     ##
 ##                         ##
-##       Assignment I.     ##
+##       Assignment 2.     ##
 ##                         ##
 ##       Data cleaning     ##
 #############################
@@ -10,7 +10,7 @@
 # SET UP ------------------------------------------------------------------
 
 # IN: data from web
-# OUT: airbnb_paris_cleaned.csv
+# OUT: airbnb_capetown_cleaned.csv
 
 #setting working directory
 rm(list=ls())
@@ -27,14 +27,15 @@ path <- "/Users/maryamkhan/Data_Analysis3/Assignment2"
 data_in  <- paste0(path,"/data/Raw/")
 data_out <- paste0(path,"/data/Clean/")
 
-df<-read.csv(paste0(data_in,"cape_town.csv"))
+df<-read.csv(paste0(data_in,"istanbul.csv"))
 # INITIAL STEPS -----------------------------------------------------------
 
 # basic data checks
-sort(unique(df$last_scraped)) # they were scraped between 2021 December 25 and December 29
+sort(unique(df$last_scraped)) # they were scraped between 2021 December 29 and December 31
 sum(rowSums(is.na(df)) == ncol(df)) # no only NA rows
 nrow(df[duplicated(df),]) #  no duplicates 
-sum(colSums(is.na(df)) > 0.5*nrow(df)) # there are 3columns with at least 50% of the values missing 
+sum(colSums(is.na(df)) > 0.5*nrow(df)) # there are 4 columns with at least 50% of the values missing 
+
 
 
 # drop unnecessary columns
@@ -62,7 +63,7 @@ drops <- c("listing_url",
 
 df<-df[ , !(names(df) %in% drops)]
 
-write.csv(df,file=paste0(data_in,"airbnb_capetown_raw.csv"))
+write.csv(df,file=paste0(data_in,"airbnb_istabnbul_raw.csv"))
 
 #drop broken lines - where id is not a character of numbers
 df$junk<-grepl("[[:alpha:]]", df$id)
@@ -112,7 +113,7 @@ drops <- c("amenities","translation missing: en.hosting_amenity_49",
 df<-df[ , !(names(df) %in% drops)]
 
 # create data frame of the amenities
-ams <- df %>% select(-(1:47))
+ams <- df %>% select(-(1:48))
 
 # delete spaces in the beginning and end of the column names, and transfer all to lower case
 names(ams) <- gsub(" ","_", tolower(trimws(names(ams))))
@@ -156,13 +157,13 @@ selected <- sapply(names(ams), function(x){
 
 amenities <- ams[,selected]
 
-df <- df %>% select((1:47))
+df <- df %>% select((1:48))
 
 df <- cbind(df, amenities)
 
 
 
 #write csv
-write.csv(df,file=paste0(data_out,"airbnb_capetown_cleaned.csv"))
-saveRDS(df, paste0(data_out,"airbnb_capetown_cleaned.rds"))
+write.csv(df,file=paste0(data_out,"airbnb_istanbul_cleaned.csv"))
+saveRDS(df, paste0(data_out,"airbnb_istanbul_cleaned.rds"))
 
