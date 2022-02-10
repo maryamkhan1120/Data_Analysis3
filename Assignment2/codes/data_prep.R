@@ -19,8 +19,8 @@ library(skimr)
 library(ggpubr)
 library(ggplot2)
 # data used
-# download the data from https://github.com/maryamkhan1120/Data_Analysis3/blob/main/Assignment2/data/clean/airbnb_capetown_cleaned.rds
-# then set your path to be able to run the code (I can't link it directly as it is too big, so you have to download)
+# download the data from https://github.com/maryamkhan1120/Data_Analysis3/blob/main/Assignment2/data/clean/airbnb_istanbul_cleaned.rds
+#Can't link it directly as it is too big, so you have to download
 
 
 path <- "/Users/maryamkhan/Data_Analysis3/Assignment2/"
@@ -36,12 +36,12 @@ output <- paste0(path,"Output/")
 options(digits = 3)
 
 
-#-------------------------------------------------------
+
 # Import data
 df <- read_rds(paste(data_in,"airbnb_istanbul_cleaned.rds", sep = ""))
 
 
-# FILTER DATA TO ACTUAL CASE ----------------------------------------------
+# FILTER DATA
 
 # check for different property types
 types <- df %>% group_by(property_type) %>% 
@@ -49,10 +49,6 @@ types <- df %>% group_by(property_type) %>%
   arrange(.,-number)
 #rm(types)
 
-# keep if property type is Apartment
-# df <- df %>%
-#   filter(grepl("apartment", property_type )) %>% 
-#   filter(!grepl("serviced apartment", property_type))
 
 # keep if property_type suggests that the place is an apartment
 df <- df %>% 
@@ -63,8 +59,8 @@ df <- df %>%
 df <- df[df$accommodates >= 2 & df$accommodates <= 6,]
 
 
-# CLEANE VARIABLES AND CREATE WORKFILE ------------------------------------------------
-###############################
+# CLEAN VARIABLES AND CREATE WORKFILE
+
 #### FACTORS
 #
 # Property type as factor
@@ -116,16 +112,13 @@ df <- df %>%
 #
 ## Create Numerical variables
 
-# checking for NA price as price is the main variable
+# checking for NA price as price is the main variable - no NA values for price
 
 df %>% 
   group_by(price) %>% 
   summarise(cnt = n())
 unique(df$price)
 
-#dropping observations where price is NA
-df <- df %>%
-  drop_na(price)
 
 # Creating USD price column as price is given in local currency
 df <- df %>% mutate( p_host_response_rate = as.numeric(host_response_rate),
@@ -192,7 +185,7 @@ dnames_i <- match(dnames, colnames(df))
 colnames(df)[dnames_i] <- paste0("d_", tolower(gsub("[^[:alnum:]_]", "",dummies)))
 
 
-# CREATING A WORKING FILE --------------------------------------------------------
+# CREATING A WORKING FILE 
 
 # filtering columns and keeping only columns that contain d_, n_, f_, p_, usd_ and some others
 df <- df %>%
@@ -491,9 +484,9 @@ ggplot(df, aes(n_minimum_nights)) +
 describe(df$n_minimum_nights)
 
 
-#### I will create pooled categories -> 1, 2 and 3, 3+
+#### I will create pooled categories 
 
-# Pool and categorize the number of minimum nights: 1,2,3, 3+
+# Pool and categorize the number of minimum nights
 df <- df %>%
   mutate(f_minimum_nights= cut(n_minimum_nights, c(0,12,30,max(df$n_minimum_nights)+1), labels=c(1,2,3), right = F))
 
@@ -514,7 +507,7 @@ ggplot(data = df, aes(x=n_number_of_reviews , y=price)) +
 
 
 
-# SAVE ADJUSTED WORKFILE --------------------------------------------------
+# SAVE ADJUSTED WORKFILE
 
 write_csv(df, paste0(data_out, "istanbul_workfile_adj.csv"))
 saveRDS(df, paste0(data_out, "istanbul_workfile_adj.rds"))
