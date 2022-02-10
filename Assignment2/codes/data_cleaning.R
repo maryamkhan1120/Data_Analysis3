@@ -10,7 +10,7 @@
 # SET UP ------------------------------------------------------------------
 
 # IN: data from web
-# OUT: airbnb_capetown_cleaned.csv
+# OUT: airbnb_istanbul_cleaned.csv
 
 #setting working directory
 rm(list=ls())
@@ -61,6 +61,7 @@ drops <- c("listing_url",
            "calculated_host_listings_count_private_rooms", 
            "calculated_host_listings_count_shared_rooms")
 
+
 df<-df[ , !(names(df) %in% drops)]
 
 write.csv(df,file=paste0(data_in,"airbnb_istabnbul_raw.csv"))
@@ -75,7 +76,7 @@ sapply(df, class)
 sapply(df, typeof)
 
 
-# FORMATTING COLUMNS ------------------------------------------------------
+# FORMATTING COLUMNS
 
 #remove percentage signs
 for (perc in c("host_response_rate","host_acceptance_rate")){
@@ -97,7 +98,7 @@ for (binary in c("host_is_superhost","host_has_profile_pic","host_identity_verif
 
 
 
-# AMENITIES ---------------------------------------------------------------
+# AMENITIES
 #amenities
 df$amenities<-gsub("\\[","",df$amenities)
 df$amenities<-gsub("\\]","",df$amenities)
